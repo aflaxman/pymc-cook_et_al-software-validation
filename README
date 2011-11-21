@@ -1,6 +1,10 @@
-Project Name
-------------
+PyMC Cook et al Software Validation
+-----------------------------------
 
-Project Description
+This project is a replication of the examples from the paper
+"Validation of Software for Bayesian Models Using Posterior Quantiles"
+by Samantha R. Cook, Andrew Gelman, and Donald B. Rubin.
+
+
 
 
