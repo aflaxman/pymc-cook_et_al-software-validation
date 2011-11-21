@@ -4,11 +4,13 @@
 import matplotlib
 matplotlib.use("AGG") 
 
+import data
 import models
 
 class TestClass:
-   def setUp(self):
-      pass
+    def setUp(self):
+        pass
 
-   def test_models(self):
-       assert False, 'Write test, fail, write code, pass'
+    def test_simple_data(self):
+        vars = data.simple_hierarchical_model([10,10,10])
+        assert 'y' in vars
