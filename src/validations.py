@@ -5,9 +5,11 @@ import pandas
 
 import data
 import models
+import graphics
 
 reload(data)
 reload(models)
+reload(graphics)
 
 def validate_simple_model_once(n=[33, 21, 22, 22, 24, 11]):
     # generate data and model
@@ -15,8 +17,8 @@ def validate_simple_model_once(n=[33, 21, 22, 22, 24, 11]):
     m = models.simple_hierarchical_model(d['y'])
 
     # fit model with MCMC
-    #mc.MCMC(m).sample(20000, 10000, 2)
-    mc.MCMC(m).sample(2000, 1000, 2)
+    mc.MCMC(m).sample(20000, 10000, 2)
+    #mc.MCMC(m).sample(2000, 1000, 2)
 
     # tally posterior quantiles
     results = {}
@@ -48,4 +50,13 @@ def validate_simple_model(N_rep=20):
         p_var = pl.exp(mc.chi2_like(X_var, N_rep))
         z[var] = [mc.utils.invcdf(p_var)]
     
-    return pandas.DataFrame(z, index=['z']).append(q)
+    results = pandas.DataFrame(z, index=['z']).append(q)
+
+    graphics.scalar_validation_statistics(
+        results, 
+        {r'$\mu/\tau$': ['mu_by_tau'],
+         r'$\sigma^{-2}$': ['inv_sigma_sq'],
+         r'$\tau^{-2}$': ['inv_tau_sq'],
+         r'$\mu$': ['mu'],
+         r'$\alpha/\sigma$': results.filter(regex='alpha_\d_by_sigma').columns,
+         r'$\alpha$': results.filter(regex='alpha_\d$').columns})
