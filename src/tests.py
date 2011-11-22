@@ -19,3 +19,12 @@ class TestClass:
         p = [[1,2,3], [4,5,6,7]]
         vars = models.simple_hierarchical_model(p)
         assert 'y' in vars
+
+    def test_complex_data(self):
+        vars = data.complex_hierarchical_data([10,10,10])
+        assert 'y' in vars
+        
+    def test_complex_model(self):
+        d = data.complex_hierarchical_data([10,11,12])
+        vars = models.complex_hierarchical_model(d['y'], d['X'], d['t'])
+        assert 'mu' in vars

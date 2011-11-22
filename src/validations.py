@@ -3,6 +3,7 @@ import pylab as pl
 import pymc as mc
 import pandas
 import scipy.stats.stats
+import random
 
 import data
 import models
@@ -82,11 +83,79 @@ def validate_simple_model(N_rep=20, simulation=good_simple_sim):
 
     graphics.scalar_validation_statistics(
         results, 
-        {r'$\mu/\tau$': ['mu_by_tau'],
-         r'$\sigma^{-2}$': ['inv_sigma_sq'],
-         r'$\tau^{-2}$': ['inv_tau_sq'],
-         r'$\mu$': ['mu'],
-         r'$\alpha/\sigma$': results.filter(regex='alpha_\d_by_sigma').columns,
-         r'$\alpha$': results.filter(regex='alpha_\d$').columns})
+        [[r'$\mu/\tau$', ['mu_by_tau']],
+         [r'$\sigma^{-2}$', ['inv_sigma_sq']],
+         [r'$\tau^{-2}$', ['inv_tau_sq']],
+         [r'$\mu$', ['mu']],
+         [r'$\alpha/\sigma$', results.filter(regex='alpha_\d_by_sigma').columns],
+         [r'$\alpha$', results.filter(regex='alpha_\d$').columns]])
 
     return results
+
+
+
+def good_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
+    # generate data and model
+    d = data.complex_hierarchical_data(n)
+    
+    # make some data missing
+    y_w_missing = [y_j.copy() for y_j in d['y']]
+    for k in range(n_mis):
+        j = random.choice(range(d['J']))
+        i = random.choice(range(d['n'][j]))
+        y_w_missing[j][i] = pl.nan
+
+    m = models.complex_hierarchical_model(y_w_missing, d['X'], d['t'])
+
+    # fit model with MCMC
+    mc.MCMC(m).sample(600, 100)
+
+    return d, m
+
+def validate_complex_model(N_rep=20, simulation=good_complex_sim):
+    q = pandas.DataFrame()
+    for n in range(N_rep):
+        # simulate data and fit model
+        d, m = simulation()
+
+        # tally posterior quantiles
+        results = {}
+
+        for var in 'eta_cross_eta eta delta_mu delta_beta beta gamma mu sigma'.split():
+            for j, var_j in enumerate(d[var]):
+                stats = m[var].stats()
+                results['%s_%d'%(var, j)] = [(var_j > m[var].trace()[:,j]).sum() / float(stats['n'])]
+        
+        # add y_mis
+        k = 0
+        for j, n_j in enumerate(d['n']):
+            for i in range(n_j):
+                if pl.isnan(m['y'][j][i]):
+                    results['y_mis_%d'%k] = [(d['y'][j][i] > m['y_pred'][j].trace()[:,i]).sum() / float(stats['n'])]
+                    k += 1
+
+        q = q.append(pandas.DataFrame(results, index=['q_rep_%d'%n]))
+
+    z = {}
+    for var in q.columns:
+        X_var = pl.sum(mc.utils.invcdf(q[var])**2)
+        p_var = scipy.stats.stats.chisqprob(X_var, N_rep)
+        z[var] = [mc.utils.invcdf(p_var)]
+    
+    results = pandas.DataFrame(z, index=['z']).append(q)
+
+    graphics.scalar_validation_statistics(
+        results, 
+        [[r'$y_{mis}$', results.filter(like='y_mis').columns],
+         [r'$\eta\times\eta$', results.filter(like='eta_cross_eta').columns],
+         [r'$\eta$', results.filter(regex='eta_\d').columns],
+         [r'$\delta_\mu$', results.filter(like='delta_mu').columns],
+         [r'$\delta_\beta$', results.filter(like='delta_beta').columns],
+         [r'$\sigma$', results.filter(like='sigma').columns],
+         [r'$\beta$', results.filter(regex='^beta').columns],
+         [r'$\gamma$', results.filter(regex='gamma').columns],
+         [r'$\mu$', results.filter(regex='^mu').columns],
+         ])
+
+    return results
+
