@@ -4,7 +4,7 @@
 import pylab as pl
 import pymc as mc
 
-def simple_hierarchical_model(n):
+def simple_hierarchical_data(n):
     """ Generate data based on the simple one-way hierarchical model
     given in section 3.1.1::
 
@@ -27,6 +27,11 @@ def simple_hierarchical_model(n):
     J = len(n)
     alpha = mc.rnormal(mu=mu, tau=inv_tau_sq, size=J)
     y = [mc.rnormal(mu=alpha[j], tau=inv_sigma_sq, size=n[j]) for j in range(J)]
+
+    mu_by_tau = mu * pl.sqrt(inv_tau_sq)
+    alpha_by_sigma = alpha * pl.sqrt(inv_sigma_sq)
+    alpha_bar = alpha.sum()
+    alpha_bar_by_sigma = alpha_bar * pl.sqrt(inv_sigma_sq)
 
     return vars()
 
