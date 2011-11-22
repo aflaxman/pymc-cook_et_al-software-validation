@@ -18,7 +18,7 @@ def good_simple_sim(n=[33, 21, 22, 22, 24, 11]):
     m = models.simple_hierarchical_model(d['y'])
 
     # fit model with MCMC
-    mc.MCMC(m).sample(2000, 1000)
+    mc.MCMC(m).sample(6000, 1000)
 
     return d, m
 
@@ -28,10 +28,10 @@ def bad_simple_sim_1(n=[33, 21, 22, 22, 24, 11]):
     d = data.simple_hierarchical_data(n)
     m = models.simple_hierarchical_model(d['y'])
     m['mu'].parents['mu'] = -5.
-    m['mu'].parents['tau'] = .01**-2
+    m['mu'].parents['tau'] = .001**-2
 
     # fit model with MCMC
-    mc.MCMC(m).sample(2000, 1000)
+    mc.MCMC(m).sample(6000, 1000)
 
     return d, m
 
@@ -44,7 +44,7 @@ def bad_simple_sim_2(n=[33, 21, 22, 22, 24, 11]):
     # fit model with MCMC, but with badly initialized step method
     mcmc = mc.MCMC(m)
     mcmc.use_step_method(mc.Metropolis, m['alpha'], proposal_sd=.0001)
-    mcmc.sample(2000, 1000)
+    mcmc.sample(6000, 1000)
 
     return d, m
 

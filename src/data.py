@@ -21,7 +21,7 @@ def simple_hierarchical_data(n):
     """
 
     inv_sigma_sq = mc.rgamma(alpha=2.5, beta=50.)
-    mu = mc.rnormal(mu=5., tau=.5**-2.)
+    mu = mc.rnormal(mu=5., tau=5.**-2.)
     inv_tau_sq = mc.rgamma(alpha=1., beta=10.)
 
     J = len(n)

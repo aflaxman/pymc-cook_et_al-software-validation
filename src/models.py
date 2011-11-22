@@ -21,7 +21,7 @@ def simple_hierarchical_model(y):
     """
 
     inv_sigma_sq = mc.Gamma('inv_sigma_sq', alpha=2.5, beta=50.)
-    mu = mc.Normal('mu', mu=5., tau=.5**-2.)
+    mu = mc.Normal('mu', mu=5., tau=5.**-2.)
     inv_tau_sq = mc.Gamma('inv_tau_sq', alpha=1., beta=10.)
 
     J = len(y)
