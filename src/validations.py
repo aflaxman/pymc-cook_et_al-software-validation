@@ -2,6 +2,7 @@
 import pylab as pl
 import pymc as mc
 import pandas
+import scipy.stats.stats
 
 import data
 import models
@@ -17,8 +18,8 @@ def validate_simple_model_once(n=[33, 21, 22, 22, 24, 11]):
     m = models.simple_hierarchical_model(d['y'])
 
     # fit model with MCMC
-    mc.MCMC(m).sample(20000, 10000, 2)
-    #mc.MCMC(m).sample(2000, 1000, 2)
+    #mc.MCMC(m).sample(20000, 10000, 2)
+    mc.MCMC(m).sample(5000)
 
     # tally posterior quantiles
     results = {}
@@ -47,7 +48,7 @@ def validate_simple_model(N_rep=20):
     z = {}
     for var in q.columns:
         X_var = pl.sum(mc.utils.invcdf(q[var])**2)
-        p_var = pl.exp(mc.chi2_like(X_var, N_rep))
+        p_var = scipy.stats.stats.chisqprob(X_var, N_rep)
         z[var] = [mc.utils.invcdf(p_var)]
     
     results = pandas.DataFrame(z, index=['z']).append(q)
@@ -60,3 +61,5 @@ def validate_simple_model(N_rep=20):
          r'$\mu$': ['mu'],
          r'$\alpha/\sigma$': results.filter(regex='alpha_\d_by_sigma').columns,
          r'$\alpha$': results.filter(regex='alpha_\d$').columns})
+
+    return results
