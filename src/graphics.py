@@ -16,7 +16,7 @@ def scalar_validation_statistics(results, groups):
         pl.plot([pl.mean(z)], [row], 'o', color='k', mec='k', mew=1)
         pl.plot(z, [row]*len(z), 'o', color='none', mec='k', mew=1)
 
-    pl.yticks(range(len(groups)), ['%s %d' % (g, len(groups[g])) for g in sorted(groups)])
+    pl.yticks(range(len(groups)), ['%s %d' % (g, len(groups[g])) for g in sorted(groups)], fontsize='large')
     width = max(pl.absolute(results.ix['z']))
     pl.axis([-.05*width, width*1.05, -.5, len(groups)-.5])
-    pl.xlabel(r'Absolute $z$ transform of $p_\theta$ values')
+    pl.xlabel(r'Absolute $z$ transform of $p_\theta$ values', fontsize='large')
