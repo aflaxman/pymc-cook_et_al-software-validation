@@ -24,7 +24,7 @@ def good_simple_sim(n=[33, 21, 22, 22, 24, 11]):
     return d, m
 
 
-def bad_simple_sim_1(n=[33, 21, 22, 22, 24, 11]):
+def bad_mu_prior_simple_sim(n=[33, 21, 22, 22, 24, 11]):
     # generate data and model, intentionally misspecifying prior on mu
     d = data.simple_hierarchical_data(n)
     m = models.simple_hierarchical_model(d['y'])
@@ -37,7 +37,7 @@ def bad_simple_sim_1(n=[33, 21, 22, 22, 24, 11]):
     return d, m
 
 
-def bad_simple_sim_2(n=[33, 21, 22, 22, 24, 11]):
+def bad_alpha_sampler_simple_sim(n=[33, 21, 22, 22, 24, 11]):
     # generate data and model
     d = data.simple_hierarchical_data(n)
     m = models.simple_hierarchical_model(d['y'])
@@ -95,7 +95,7 @@ def validate_simple_model(N_rep=20, simulation=good_simple_sim):
 
 
 def good_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
-    # generate data and model
+    # generate full data
     d = data.complex_hierarchical_data(n)
     
     # make some data missing
@@ -105,12 +105,70 @@ def good_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
         i = random.choice(range(d['n'][j]))
         y_w_missing[j][i] = pl.nan
 
+    # generate model
     m = models.complex_hierarchical_model(y_w_missing, d['X'], d['t'])
 
-    # fit model with MCMC
-    mc.MCMC(m).sample(600, 100)
+    # fit model with MAP + MCMC
+    mc.MAP(m).fit(method='fmin_powell', verbose=True)
+    mc.MCMC(m).sample(60000, 10000, 10)
 
     return d, m
+
+def bad_y_exp_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
+    # generate full data
+    d = data.complex_hierarchical_data(n)
+    
+    # make some data missing
+    y_w_missing = [y_j.copy() for y_j in d['y']]
+    for k in range(n_mis):
+        j = random.choice(range(d['J']))
+        i = random.choice(range(d['n'][j]))
+        y_w_missing[j][i] = pl.nan
+
+    # generate model
+    m = models.complex_hierarchical_model(y_w_missing, d['X'], d['t'])
+
+    # replace data prediction with wrong exponent
+    m['y_exp'] = [mc.Lambda('y_exp_%d'%j, lambda mu=m['mu'], beta=m['beta'], gamma=m['gamma'], t=m['t'], j=j: mu[j] - pl.exp(beta[j])*t[j] - pl.exp(gamma[j])*t[j]**3) for j in range(m['J'])]
+    @mc.potential
+    def y_obs(y_exp=m['y_exp'], sigma=m['sigma'], y=m['y']):
+        logp = 0.
+        for j in range(m['J']):
+            missing = pl.isnan(y[j])
+            logp += mc.normal_like(y[j][~missing], y_exp[j][~missing], sigma[j]**-2)
+        return logp
+    m['y_obs'] = y_obs
+    m['y_pred'] = [mc.Normal('y_pred_%d'%j, m['y_exp'][j], m['sigma'][j]**-2) for j in range(m['J'])]
+
+    # fit model with MAP + MCMC
+    mc.MAP(m).fit(method='fmin_powell', verbose=True)
+    mc.MCMC(m).sample(60000, 10000, 10)
+
+    return d, m
+
+def bad_eta_prior_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
+    # generate full data
+    d = data.complex_hierarchical_data(n)
+    
+    # make some data missing
+    y_w_missing = [y_j.copy() for y_j in d['y']]
+    for k in range(n_mis):
+        j = random.choice(range(d['J']))
+        i = random.choice(range(d['n'][j]))
+        y_w_missing[j][i] = pl.nan
+
+    # generate model
+    m = models.complex_hierarchical_model(y_w_missing, d['X'], d['t'])
+
+    # replace eta prior with wrong covariance
+    m['eta'].parents['C'] = pl.eye(4)
+
+    # fit model with MAP + MCMC
+    mc.MAP(m).fit(method='fmin_powell', verbose=True)
+    mc.MCMC(m).sample(60000, 10000, 10)
+
+    return d, m
+
 
 def validate_complex_model(N_rep=20, simulation=good_complex_sim):
     q = pandas.DataFrame()
@@ -136,6 +194,8 @@ def validate_complex_model(N_rep=20, simulation=good_complex_sim):
 
         q = q.append(pandas.DataFrame(results, index=['q_rep_%d'%n]))
 
+
+    # calculate z-scores from q values
     z = {}
     for var in q.columns:
         X_var = pl.sum(mc.utils.invcdf(q[var])**2)
@@ -144,6 +204,8 @@ def validate_complex_model(N_rep=20, simulation=good_complex_sim):
     
     results = pandas.DataFrame(z, index=['z']).append(q)
 
+
+    # display results
     graphics.scalar_validation_statistics(
         results, 
         [[r'$y_{mis}$', results.filter(like='y_mis').columns],
@@ -159,3 +221,35 @@ def validate_complex_model(N_rep=20, simulation=good_complex_sim):
 
     return results
 
+if __name__ == '__main__':
+    pl.figure()
+    validate_simple_model(20, good_simple_sim)
+    pl.title('Normal Example: Correctly Written Software')
+    pl.savefig('fig_4_replication.png')
+
+    pl.figure()
+    validate_simple_model(20, bad_alpha_sampler_simple_sim)
+    pl.title(r'Normal Example: Error Sampling $\alpha$')
+    pl.savefig('fig_5_replication.png')
+
+    pl.figure()
+    validate_simple_model(20, bad_mu_prior_simple_sim)
+    pl.title(r'Normal Example: Error Specifying Prior on $\mu$')
+    pl.savefig('fig_6_replication.png')
+
+
+
+    pl.figure()
+    validate_complex_model(20, good_complex_sim)
+    pl.title(r'Clinical Trial Example: Correctly Written Software')
+    pl.savefig('fig_7_replication.png')
+
+    pl.figure()
+    validate_complex_model(20, bad_y_exp_complex_sim)
+    pl.title(r'Clinical Trial Example: Error in Data Model')
+    pl.savefig('fig_8_replication.png')
+
+    pl.figure()
+    validate_complex_model(20, bad_eta_prior_complex_sim)
+    pl.title(r'Clinical Trial Example: Error in Hyperprior Specification')
+    pl.savefig('fig_9_replication.png')

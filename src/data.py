@@ -36,7 +36,7 @@ def simple_hierarchical_data(n):
     return vars()
 
 
-def complex_hierarchical_data(n, n_mis=2):
+def complex_hierarchical_data(n):
     """ Generate data based on the much more complicated model
     given in section 3.2.1::
 
@@ -67,9 +67,12 @@ def complex_hierarchical_data(n, n_mis=2):
     m = 0.
     s = 1.
     M = pl.zeros(4)
-    C = pl.ones((4,4)) + pl.eye(4)
+    r = [[  1, .57, .18, .56],
+         [.57,   1, .72, .16],
+         [.18, .72,   1, .14],
+         [.56, .16, .14,   1]]
 
-    eta = mc.rmv_normal_cov(M, C)
+    eta = mc.rmv_normal_cov(M, r)
     omega = pl.exp(eta[-1])
 
     delta_beta = mc.rnormal(m, s**-2, size=5)

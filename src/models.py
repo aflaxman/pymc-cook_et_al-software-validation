@@ -74,9 +74,12 @@ def complex_hierarchical_model(y, X, t):
     m = 0.
     s = 1.
     M = pl.zeros(4)
-    C = pl.ones((4,4)) + pl.eye(4)
+    r = pl.array([[  1, .57, .18, .56],
+                  [.57,   1, .72, .16],
+                  [.18, .72,   1, .14],
+                  [.56, .16, .14,   1]])
 
-    eta = mc.MvNormalCov('eta', M, C)
+    eta = mc.MvNormalCov('eta', M, r)
     omega = mc.Lambda('omega', lambda eta=eta: pl.exp(eta[-1]))
     
     delta_beta = mc.Normal('delta_beta', m, s**-2, size=5)
