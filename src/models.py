@@ -6,7 +6,14 @@ import pymc as mc
 
 def simple_hierarchical_model(y):
     """ PyMC implementation of the simple hierarchical model from
-    section 3.1.1
+    section 3.1.1::
+
+        y[i,j] | alpha[j], sigma^2 ~ N(alpha[j], sigma^2) i = 1, ..., n_j, j = 1, ..., J;
+        alpha[j] | mu, tau^2 ~ N(mu, tau^2) j = 1, ..., J.
+
+        sigma^2 ~ Inv-Chi^2(5, 20)
+        mu ~ N(5, 5^2)
+        tau^2 ~ Inv-Chi^2(2, 10)
 
     Parameters
     ----------
