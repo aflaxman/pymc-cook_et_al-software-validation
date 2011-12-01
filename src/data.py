@@ -60,7 +60,7 @@ def complex_hierarchical_data(n):
     J = len(n)
     
     # covariate data, not entirely specified in paper
-    X = mc.rnormal(0, 1, size=J)
+    X = mc.rnormal(0, .1**-2, size=J)
     t = [pl.arange(n[j]) for j in range(J)]
 
     # hyper-priors, not specified in detail in paper
@@ -73,20 +73,20 @@ def complex_hierarchical_data(n):
          [.56, .16, .14,   1]]
 
     eta = mc.rmv_normal_cov(M, r)
-    omega = pl.exp(eta[-1])
+    omega = .0001 #pl.exp(eta[-1])
 
     delta_beta = mc.rnormal(m, s**-2, size=5)
-    omega_beta = pl.exp(delta_beta[-1])
+    omega_beta = .0001 #pl.exp(delta_beta[-1])
 
     delta_mu = mc.rnormal(m, s**-2, size=5)
-    omega_mu = pl.exp(delta_mu[-1])
+    omega_mu = .0001 #pl.exp(delta_mu[-1])
 
     gamma = mc.rnormal(eta[0] + eta[1]*X + eta[2]*X**2, omega**-2.)
     beta = mc.rnormal(delta_beta[0] + delta_beta[1]*X + delta_beta[2]*X**2 + delta_beta[3]*gamma, omega_beta**-2)
     mu = mc.rnormal(delta_mu[0] + delta_mu[1]*X + delta_mu[2]*X**2 + delta_mu[3]*gamma + delta_mu[4]*beta, omega_mu**-2)
 
     # stochastic error, not specified in paper
-    sigma = pl.ones(J)
+    sigma = .01*pl.ones(J)
     y = [mc.rnormal(mu[j] - pl.exp(beta[j])*t[j] - pl.exp(gamma[j])*t[j]**2, sigma[j]**-2) for j in range(J)]
 
     eta_cross_eta = [eta[0]*eta[1], eta[0]*eta[2], eta[0]*eta[3], eta[1]*eta[2], eta[1]*eta[2], eta[2]*eta[3]]

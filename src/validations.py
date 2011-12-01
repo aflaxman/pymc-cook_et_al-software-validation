@@ -13,13 +13,28 @@ reload(data)
 reload(models)
 reload(graphics)
 
+def validation_transform(q):
+    N_rep = len(q)
+    p = {}
+    z = {}
+    for var in q.columns:
+        X_var = pl.sum(mc.utils.invcdf(q[var])**2)
+        p[var] = scipy.stats.stats.chisqprob(X_var, N_rep)
+        z[var] = [mc.utils.invcdf(p[var])]
+    
+    return pandas.DataFrame(z, index=['z']).append(pandas.DataFrame(p, index=['p'])).append(q)
+
+
 def good_simple_sim(n=[33, 21, 22, 22, 24, 11]):
     # generate data and model
     d = data.simple_hierarchical_data(n)
     m = models.simple_hierarchical_model(d['y'])
 
     # fit model with MCMC
-    mc.MCMC(m).sample(6000, 1000)
+    mcmc = mc.MCMC(m)
+    mcmc.use_step_method(mc.AdaptiveMetropolis, [m['inv_sigma_sq'], m['mu'], m['inv_tau_sq']])
+    mcmc.use_step_method(mc.AdaptiveMetropolis, [m['alpha']])
+    mcmc.sample(60000, 10000, 10)
 
     return d, m
 
@@ -32,7 +47,10 @@ def bad_mu_prior_simple_sim(n=[33, 21, 22, 22, 24, 11]):
     m['mu'].parents['tau'] = .001**-2
 
     # fit model with MCMC
-    mc.MCMC(m).sample(6000, 1000)
+    mcmc = mc.MCMC(m)
+    mcmc.use_step_method(mc.AdaptiveMetropolis, [m['inv_sigma_sq'], m['mu'], m['inv_tau_sq']])
+    mcmc.use_step_method(mc.AdaptiveMetropolis, [m['alpha']])
+    mcmc.sample(60000, 10000, 10)
 
     return d, m
 
@@ -44,8 +62,9 @@ def bad_alpha_sampler_simple_sim(n=[33, 21, 22, 22, 24, 11]):
 
     # fit model with MCMC, but with badly initialized step method
     mcmc = mc.MCMC(m)
-    mcmc.use_step_method(mc.Metropolis, m['alpha'], proposal_sd=.0001)
-    mcmc.sample(6000, 1000)
+    mcmc.use_step_method(mc.AdaptiveMetropolis, [m['inv_sigma_sq'], m['mu'], m['inv_tau_sq']])
+    mcmc.use_step_method(mc.NoStepper, m['alpha'])
+    mcmc.sample(60000, 10000, 10)
 
     return d, m
 
@@ -73,13 +92,7 @@ def validate_simple_model(N_rep=20, simulation=good_simple_sim):
 
         q = q.append(pandas.DataFrame(results, index=['q_rep_%d'%n]))
 
-    z = {}
-    for var in q.columns:
-        X_var = pl.sum(mc.utils.invcdf(q[var])**2)
-        p_var = scipy.stats.stats.chisqprob(X_var, N_rep)
-        z[var] = [mc.utils.invcdf(p_var)]
-    
-    results = pandas.DataFrame(z, index=['z']).append(q)
+    results = validation_transform(q)
 
     graphics.scalar_validation_statistics(
         results, 
@@ -108,9 +121,10 @@ def good_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
     # generate model
     m = models.complex_hierarchical_model(y_w_missing, d['X'], d['t'])
 
-    # fit model with MAP + MCMC
-    mc.MAP(m).fit(method='fmin_powell', verbose=True)
-    mc.MCMC(m).sample(60000, 10000, 10)
+    # fit model with Normal Approx
+    na = mc.NormApprox(m)
+    na.fit(method='fmin_powell', verbose=True)
+    na.sample(5000)
 
     return d, m
 
@@ -140,9 +154,10 @@ def bad_y_exp_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
     m['y_obs'] = y_obs
     m['y_pred'] = [mc.Normal('y_pred_%d'%j, m['y_exp'][j], m['sigma'][j]**-2) for j in range(m['J'])]
 
-    # fit model with MAP + MCMC
-    mc.MAP(m).fit(method='fmin_powell', verbose=True)
-    mc.MCMC(m).sample(60000, 10000, 10)
+    # fit model with Normal Approx
+    na = mc.NormApprox(m)
+    na.fit(method='fmin_powell', verbose=True)
+    na.sample(5000)
 
     return d, m
 
@@ -163,9 +178,10 @@ def bad_eta_prior_complex_sim(n=[12, 13, 9, 17, 11, 11, 13, 8, 15], n_mis=2):
     # replace eta prior with wrong covariance
     m['eta'].parents['C'] = pl.eye(4)
 
-    # fit model with MAP + MCMC
-    mc.MAP(m).fit(method='fmin_powell', verbose=True)
-    mc.MCMC(m).sample(60000, 10000, 10)
+    # fit model with Normal Approx
+    na = mc.NormApprox(m)
+    na.fit(method='fmin_powell', verbose=True)
+    na.sample(5000)
 
     return d, m
 
@@ -195,15 +211,7 @@ def validate_complex_model(N_rep=20, simulation=good_complex_sim):
         q = q.append(pandas.DataFrame(results, index=['q_rep_%d'%n]))
 
 
-    # calculate z-scores from q values
-    z = {}
-    for var in q.columns:
-        X_var = pl.sum(mc.utils.invcdf(q[var])**2)
-        p_var = scipy.stats.stats.chisqprob(X_var, N_rep)
-        z[var] = [mc.utils.invcdf(p_var)]
-    
-    results = pandas.DataFrame(z, index=['z']).append(q)
-
+    results = validation_transform(q)
 
     # display results
     graphics.scalar_validation_statistics(
@@ -222,34 +230,28 @@ def validate_complex_model(N_rep=20, simulation=good_complex_sim):
     return results
 
 if __name__ == '__main__':
-    pl.figure()
     validate_simple_model(20, good_simple_sim)
     pl.title('Normal Example: Correctly Written Software')
     pl.savefig('fig_4_replication.png')
 
-    pl.figure()
     validate_simple_model(20, bad_alpha_sampler_simple_sim)
     pl.title(r'Normal Example: Error Sampling $\alpha$')
     pl.savefig('fig_5_replication.png')
 
-    pl.figure()
     validate_simple_model(20, bad_mu_prior_simple_sim)
     pl.title(r'Normal Example: Error Specifying Prior on $\mu$')
     pl.savefig('fig_6_replication.png')
 
 
 
-    pl.figure()
-    validate_complex_model(20, good_complex_sim)
-    pl.title(r'Clinical Trial Example: Correctly Written Software')
-    pl.savefig('fig_7_replication.png')
+    # validate_complex_model(20, good_complex_sim)
+    # pl.title(r'Clinical Trial Example: Correctly Written Software')
+    # pl.savefig('fig_7_replication.png')
 
-    pl.figure()
-    validate_complex_model(20, bad_y_exp_complex_sim)
-    pl.title(r'Clinical Trial Example: Error in Data Model')
-    pl.savefig('fig_8_replication.png')
+    # validate_complex_model(20, bad_y_exp_complex_sim)
+    # pl.title(r'Clinical Trial Example: Error in Data Model')
+    # pl.savefig('fig_8_replication.png')
 
-    pl.figure()
-    validate_complex_model(20, bad_eta_prior_complex_sim)
-    pl.title(r'Clinical Trial Example: Error in Hyperprior Specification')
-    pl.savefig('fig_9_replication.png')
+    # validate_complex_model(20, bad_eta_prior_complex_sim)
+    # pl.title(r'Clinical Trial Example: Error in Hyperprior Specification')
+    # pl.savefig('fig_9_replication.png')

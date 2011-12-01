@@ -79,20 +79,20 @@ def complex_hierarchical_model(y, X, t):
                   [.18, .72,   1, .14],
                   [.56, .16, .14,   1]])
 
-    eta = mc.MvNormalCov('eta', M, r)
+    eta = mc.MvNormalCov('eta', M, r, value=M)
     omega = mc.Lambda('omega', lambda eta=eta: pl.exp(eta[-1]))
     
-    delta_beta = mc.Normal('delta_beta', m, s**-2, size=5)
+    delta_beta = mc.Normal('delta_beta', m, s**-2, value=m*pl.ones(5))
     omega_beta = mc.Lambda('omega_beta', lambda delta_beta=delta_beta: pl.exp(delta_beta[-1]))
 
-    delta_mu = mc.Normal('delta_mu', m, s**-2, size=5)
+    delta_mu = mc.Normal('delta_mu', m, s**-2, value=m*pl.ones(5))
     omega_mu = mc.Lambda('omega_mu', lambda delta_mu=delta_mu: pl.exp(delta_mu[-1]))
 
-    gamma = mc.Normal('gamma', eta[0] + eta[1]*X + eta[2]*X**2, omega**-2.)
-    beta = mc.Normal('beta', delta_beta[0] + delta_beta[1]*X + delta_beta[2]*X**2 + delta_beta[3]*gamma, omega_beta**-2)
-    mu = mc.Normal('mu', delta_mu[0] + delta_mu[1]*X + delta_mu[2]*X**2 + delta_mu[3]*gamma + delta_mu[4]*beta, omega_mu**-2)
+    gamma = mc.Lambda('gamma', lambda eta=eta: eta[0] + eta[1]*X + eta[2]*X**2)
+    beta = mc.Lambda('beta', lambda delta_beta=delta_beta, gamma=gamma: delta_beta[0] + delta_beta[1]*X + delta_beta[2]*X**2 + delta_beta[3]*gamma)
+    mu = mc.Lambda('mu', lambda delta_mu=delta_mu, gamma=gamma, beta=beta: delta_mu[0] + delta_mu[1]*X + delta_mu[2]*X**2 + delta_mu[3]*gamma + delta_mu[4]*beta)
 
-    sigma = mc.Uniform('sigma', 0., 10., value=pl.ones(J))
+    sigma = mc.Uniform('sigma', 0., 10., value=.1*pl.ones(J))
     y_exp = [mc.Lambda('y_exp_%d'%j, lambda mu=mu, beta=beta, gamma=gamma, j=j: mu[j] - pl.exp(beta[j])*t[j] - pl.exp(gamma[j])*t[j]**2) for j in range(J)]
     @mc.potential
     def y_obs(y_exp=y_exp, sigma=sigma, y=y):
